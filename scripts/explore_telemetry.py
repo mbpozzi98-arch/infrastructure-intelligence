@@ -1,38 +1,37 @@
 import polars as pl
 
-from infrastructure_intelligence.data.synthetic import (
-    generate_telemetry,
-    inject_anomalies,
+from infrastructure_intelligence.detection.statistical import (
+    calculate_cpu_baselines,
+    detect_cpu_anomalies,
 )
 
-normal_df = generate_telemetry(
-    n_servers=3,
-    n_hours=168,
-    seed=42,
+baseline_df = pl.DataFrame(
+    {
+        "server_id": ["srv-001", "srv-001", "srv-001"],
+        "cpu_pct": [30.0, 35.0, 40.0],
+    }
 )
 
-anomalous_df = inject_anomalies(
-    normal_df,
-    anomaly_fraction=0.05,
-    seed=42,
+evaluation_df = pl.DataFrame(
+    {
+        "server_id": ["srv-001", "srv-001"],
+        "cpu_pct": [35.0, 85.0],
+    }
 )
 
-comparison = normal_df.join(
-    anomalous_df,
-    on=["server_id", "timestamp"],
-    suffix="_after",
+baselines = calculate_cpu_baselines(baseline_df)
+
+results = detect_cpu_anomalies(
+    evaluation_df,
+    baselines,
+    threshold=3.0,
 )
 
 print(
-    comparison.filter(pl.col("is_anomaly")).select(
+    results.select(
         "server_id",
-        "timestamp",
-        "anomaly_type",
         "cpu_pct",
-        "cpu_pct_after",
-        "memory_pct",
-        "memory_pct_after",
-        "temperature_c",
-        "temperature_c_after",
+        "cpu_zscore",
+        "predicted_anomaly",
     )
 )
