@@ -1,5 +1,6 @@
 import polars as pl
 import pytest
+
 from infrastructure_intelligence.detection.evaluation import (
     evaluate_detector,
 )

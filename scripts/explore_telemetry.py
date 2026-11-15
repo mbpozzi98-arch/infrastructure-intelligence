@@ -4,17 +4,16 @@ from infrastructure_intelligence.data.synthetic import (
     generate_telemetry,
     inject_anomalies,
 )
-from infrastructure_intelligence.detection.statistical import (
-    calculate_cpu_baselines,
-    detect_cpu_anomalies,
+from infrastructure_intelligence.detection.evaluation import (
+    evaluate_detector,
 )
-
 from infrastructure_intelligence.detection.multivariate import (
     calculate_metric_baselines,
     detect_multivariate_anomalies,
 )
-from infrastructure_intelligence.detection.evaluation import (
-    evaluate_detector,
+from infrastructure_intelligence.detection.statistical import (
+    calculate_cpu_baselines,
+    detect_cpu_anomalies,
 )
 
 normal_df = generate_telemetry(
@@ -72,3 +71,21 @@ multivariate_evaluation = evaluate_detector(multivariate_results)
 
 print("\nMultivariate Anomaly Detection Evaluation:")
 print(multivariate_evaluation)
+
+
+false_negatives = multivariate_results.filter(
+    pl.col("is_anomaly") & ~pl.col("predicted_anomaly")
+)
+
+print(
+    false_negatives.select(
+        "server_id",
+        "anomaly_type",
+        "cpu_pct",
+        "memory_pct",
+        "temperature_c",
+        "cpu_pct_zscore",
+        "memory_pct_zscore",
+        "temperature_c_zscore",
+    )
+)
