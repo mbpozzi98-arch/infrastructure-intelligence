@@ -4,6 +4,13 @@ from infrastructure_intelligence.data.synthetic import (
     generate_telemetry,
     inject_anomalies,
 )
+from infrastructure_intelligence.detection.evaluation import (
+    evaluate_detector,
+)
+from infrastructure_intelligence.detection.multivariate import (
+    calculate_metric_baselines,
+    detect_multivariate_anomalies,
+)
 from infrastructure_intelligence.detection.statistical import (
     calculate_cpu_baselines,
     detect_cpu_anomalies,
@@ -27,64 +34,58 @@ evaluation_df = inject_anomalies(
     seed=42,
 )
 
+
+# CPU only anomaly detection
 baselines = calculate_cpu_baselines(baseline_df)
 
-results = detect_cpu_anomalies(
+cpu_results = detect_cpu_anomalies(
     evaluation_df,
     baselines,
     threshold=3.0,
 )
 
+cpu_metrics = evaluate_detector(cpu_results)
+print("CPU Anomaly Detection Evaluation:")
+print(cpu_metrics)
+
+
+# Multivariate detection using CPU, memory, and temperature metrics
+metrics = ["cpu_pct", "memory_pct", "temperature_c"]
+
+# Calculate historical baselines for each server and metric
+multivariate_baselines = calculate_metric_baselines(
+    baseline_df,
+    metrics,
+)
+
+# Run the multivariate anomaly detection algorithm on the evaluation data
+multivariate_results = detect_multivariate_anomalies(
+    evaluation_df,
+    multivariate_baselines,
+    metrics,
+    threshold=3.0,
+)
+
+# Evaluate the performance of the multivariate anomaly detector
+multivariate_evaluation = evaluate_detector(multivariate_results)
+
+print("\nMultivariate Anomaly Detection Evaluation:")
+print(multivariate_evaluation)
+
+
+false_negatives = multivariate_results.filter(
+    pl.col("is_anomaly") & ~pl.col("predicted_anomaly")
+)
+
 print(
-    results.select(
+    false_negatives.select(
         "server_id",
-        "timestamp",
-        "cpu_pct",
-        "cpu_zscore",
-        "is_anomaly",
         "anomaly_type",
-        "predicted_anomaly",
-    ).filter(pl.col("predicted_anomaly"))
-)
-
-confusion = results.select(
-    (pl.col("is_anomaly") & pl.col("predicted_anomaly")).sum().alias("true_positives"),
-    (~pl.col("is_anomaly") & pl.col("predicted_anomaly"))
-    .sum()
-    .alias("false_positives"),
-    (pl.col("is_anomaly") & ~pl.col("predicted_anomaly"))
-    .sum()
-    .alias("false_negatives"),
-    (~pl.col("is_anomaly") & ~pl.col("predicted_anomaly"))
-    .sum()
-    .alias("true_negatives"),
-)
-
-print(confusion)
-
-performance_by_type = (
-    results.filter(pl.col("is_anomaly"))
-    .group_by("anomaly_type")
-    .agg(
-        pl.len().alias("total_anomalies"),
-        pl.col("predicted_anomaly").sum().alias("detected"),
+        "cpu_pct",
+        "memory_pct",
+        "temperature_c",
+        "cpu_pct_zscore",
+        "memory_pct_zscore",
+        "temperature_c_zscore",
     )
-    .with_columns((pl.col("detected") / pl.col("total_anomalies")).alias("recall"))
-    .sort("anomaly_type")
 )
-
-print(performance_by_type)
-
-performance_by_server = (
-    results.group_by("server_id")
-    .agg(
-        pl.col("is_anomaly").sum().alias("actual_anomalies"),
-        pl.col("predicted_anomaly").sum().alias("alerts"),
-        (pl.col("is_anomaly") & pl.col("predicted_anomaly"))
-        .sum()
-        .alias("true_positives"),
-    )
-    .sort("server_id")
-)
-
-print(performance_by_server)

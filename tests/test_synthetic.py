@@ -1,8 +1,9 @@
+import polars as pl
+
 from infrastructure_intelligence.data.synthetic import (
     generate_telemetry,
     inject_anomalies,
 )
-import polars as pl
 
 
 def test_expected_observation_count():

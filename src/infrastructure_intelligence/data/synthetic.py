@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import polars as pl
@@ -17,7 +17,7 @@ def generate_telemetry(
     rng = np.random.default_rng(seed)
 
     # Set the timestamps for the synthetic telemetry data
-    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
 
     timestamps = [start + timedelta(hours=i) for i in range(n_hours)]
     # Create server-specific parameters for CPU utilization, temperature, and memory usage
@@ -132,7 +132,7 @@ def inject_anomalies(
 
     result = result.with_columns(
         pl.when(pl.col("anomaly_type") == "overheating")
-        .then((pl.col("temperature_c") + 25))
+        .then(pl.col("temperature_c") + 25)
         .otherwise(pl.col("temperature_c"))
         .alias("temperature_c")
     )
